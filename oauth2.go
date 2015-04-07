@@ -50,6 +50,9 @@ type Config struct {
 
 	// Scope specifies optional requested permissions.
 	Scopes []string
+
+	// helper to NOT set client_id when doing a PasswordCredentialsToken()
+	isPasswordRequest bool
 }
 
 // A TokenSource is anything that can return a token.
@@ -147,6 +150,7 @@ func (c *Config) AuthCodeURL(state string, opts ...AuthCodeOption) string {
 // The HTTP client to use is derived from the context.
 // If nil, http.DefaultClient is used.
 func (c *Config) PasswordCredentialsToken(ctx context.Context, username, password string) (*Token, error) {
+	c.isPasswordRequest = true
 	return retrieveToken(ctx, c, url.Values{
 		"grant_type": {"password"},
 		"username":   {username},
@@ -304,7 +308,11 @@ func retrieveToken(ctx context.Context, c *Config, v url.Values) (*Token, error)
 	if err != nil {
 		return nil, err
 	}
-	v.Set("client_id", c.ClientID)
+	if !c.isPasswordRequest {
+		v.Set("client_id", c.ClientID)
+	} else {
+		c.isPasswordRequest = false
+	}
 	bustedAuth := !providerAuthHeaderWorks(c.Endpoint.TokenURL)
 	if bustedAuth && c.ClientSecret != "" {
 		v.Set("client_secret", c.ClientSecret)
